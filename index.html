@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- پروژه دانشجویی: سیستم مدیریت کتابخانه — تک‌فایل، بدون نیاز به نصب، داده‌ها در localStorage ذخیره می‌شوند -->
+<!-- EDIT: نام کتابخانه را در تگ h1 زیر و در SEED_BOOKS تغییر دهید -->
+<title>سیستم مدیریت کتابخانه</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b;
+    --accent:#2563eb; --accent2:#059669; --danger:#dc2626; --warn:#d97706; --radius:12px}
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--text); font-family:'Vazirmatn',Tahoma,sans-serif; line-height:1.7}
+  .wrap{max-width:1020px; margin:0 auto; padding:0 16px}
+  header{background:var(--text); color:#fff; padding:22px 0}
+  header h1{font-size:22px}
+  header p{color:#cbd5e1; font-size:14px}
+  .stats{display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin:20px 0}
+  .stat{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px}
+  .stat b{display:block; font-size:24px}
+  .stat span{font-size:13px; color:var(--muted)}
+  .stat.alert b{color:var(--danger)}
+  .tabs{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap}
+  .tab{padding:9px 18px; border:1px solid var(--border); background:var(--card); border-radius:999px; cursor:pointer; font-family:inherit; font-size:14px}
+  .tab.active{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .panel{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:20px}
+  .panel h2{font-size:18px; margin-bottom:14px}
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  th,td{padding:10px 8px; border-bottom:1px solid var(--border); text-align:right}
+  th{background:#f8fafc}
+  .low{color:var(--danger); font-weight:700}
+  .overdue-row td{color:var(--danger)}
+  .badge{display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; font-weight:700}
+  .badge-active{background:#dbeafe; color:#1d4ed8}
+  .badge-returned{background:#dcfce7; color:#15803d}
+  .badge-overdue{background:#fee2e2; color:#b91c1c}
+  form{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px}
+  input,select{padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px}
+  .btn{padding:9px 18px; border:none; border-radius:8px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:700}
+  .btn-primary{background:var(--accent); color:#fff}
+  .btn-green{background:var(--accent2); color:#fff}
+  .btn-danger{background:var(--danger); color:#fff}
+  .btn-ghost{background:#fff; border:1px solid var(--border)}
+  .btn-sm{padding:5px 12px; font-size:13px}
+  .search{width:100%; margin-bottom:14px}
+  .bar-row{display:flex; align-items:center; gap:10px; margin:8px 0; font-size:14px}
+  .bar-label{width:170px; flex-shrink:0}
+  .bar-track{flex:1; height:18px; background:#e8eef4; border-radius:6px; overflow:hidden; min-width:40px}
+  .bar{height:100%; background:var(--accent); border-radius:6px; min-width:4px}
+  .tablewrap{overflow-x:auto}
+  .muted{color:var(--muted); font-size:13px}
+  .demo-banner{background:#f59e0b; color:#1a1005; text-align:center; padding:9px 16px; font-weight:700; font-size:14px}
+  .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
+  @media (max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="demo-banner">نسخهٔ نمایشی (دمو) — در این نسخه فقط یک امانت آزمایشی می‌توانید ثبت کنید و دانلود CSV غیرفعال است. نسخهٔ کامل را بخرید.</div>
+<header>
+  <div class="wrap">
+    <h1>📚 سیستم مدیریت کتابخانه</h1>
+    <p>پروژه دانشجویی — نسخهٔ نمایشی | مدیریت کتاب، اعضا، امانت و سررسید</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><b id="stBooks">۰</b><span>عنوان کتاب</span></div>
+    <div class="stat"><b id="stCopies">۰</b><span>تعداد نسخه‌ها</span></div>
+    <div class="stat"><b id="stMembers">۰</b><span>تعداد اعضا</span></div>
+    <div class="stat"><b id="stActive">۰</b><span>امانت‌های فعال</span></div>
+    <div class="stat alert"><b id="stOverdue">۰</b><span>سررسید گذشته</span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="books">📚 کتاب‌ها</button>
+    <button class="tab" data-tab="members">👥 اعضا</button>
+    <button class="tab" data-tab="lend">📖 امانت دادن</button>
+    <button class="tab" data-tab="loans">📋 امانت‌ها</button>
+    <button class="tab" data-tab="overdue">⏰ سررسید گذشته</button>
+    <button class="tab" data-tab="reports">📊 گزارش‌ها</button>
+  </div>
+
+  <!-- Books -->
+  <section class="panel" id="tab-books">
+    <h2 id="bookFormTitle">افزودن کتاب</h2>
+    <form id="bookForm">
+      <input id="bTitle" placeholder="عنوان کتاب" required>
+      <input id="bAuthor" placeholder="نویسنده" required>
+      <input id="bCat" placeholder="دسته (مثلاً داستان)" required>
+      <input id="bCopies" type="number" min="1" placeholder="تعداد نسخه" required>
+      <button class="btn btn-primary" type="submit" id="bookSubmitBtn">➕ افزودن کتاب</button>
+      <button class="btn btn-ghost" type="button" id="bookCancelBtn" hidden>لغو ویرایش</button>
+    </form>
+    <input class="search" id="bookSearch" placeholder="🔍 جستجو در کتاب‌ها (عنوان، نویسنده یا دسته)...">
+    <div class="tablewrap"><table>
+      <thead><tr><th>عنوان</th><th>نویسنده</th><th>دسته</th><th>نسخه‌ها</th><th>در دسترس</th><th></th></tr></thead>
+      <tbody id="bookRows"></tbody>
+    </table></div>
+    <p class="muted">کتابی که امانت فعال دارد حذف نمی‌شود؛ اول کتاب را پس بگیرید.</p>
+  </section>
+
+  <!-- Members -->
+  <section class="panel" id="tab-members" hidden>
+    <h2>افزودن عضو</h2>
+    <form id="memberForm">
+      <input id="mName" placeholder="نام و نام خانوادگی" required>
+      <input id="mPhone" placeholder="شماره تماس" required>
+      <button class="btn btn-primary" type="submit">➕ افزودن عضو</button>
+    </form>
+    <div class="tablewrap"><table>
+      <thead><tr><th>کد عضویت</th><th>نام</th><th>شماره تماس</th><th>امانت فعال</th><th></th></tr></thead>
+      <tbody id="memberRows"></tbody>
+    </table></div>
+  </section>
+
+  <!-- Lend -->
+  <section class="panel" id="tab-lend" hidden>
+    <h2>ثبت امانت جدید</h2>
+    <form id="lendForm">
+      <select id="lMember"></select>
+      <select id="lBook"></select>
+      <input id="lDue" type="date" required>
+      <button class="btn btn-green" type="submit">📖 ثبت امانت</button>
+    </form>
+    <p class="muted">تاریخ سررسید به‌صورت پیش‌فرض ۱۴ روز بعد است؛ می‌توانید آن را تغییر دهید.</p>
+  </section>
+
+  <!-- Loans -->
+  <section class="panel" id="tab-loans" hidden>
+    <h2>امانت‌ها</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>کتاب</th><th>عضو</th><th>تاریخ امانت</th><th>سررسید</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody id="loanRows"></tbody>
+    </table></div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="csvBtn">⬇️ دانلود گزارش امانت‌ها (CSV)</button>
+      <button class="btn btn-ghost" id="resetBtn">↺ برگرداندن داده‌های نمونه</button>
+    </div>
+  </section>
+
+  <!-- Overdue -->
+  <section class="panel" id="tab-overdue" hidden>
+    <h2>کتاب‌های سررسید گذشته</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>کتاب</th><th>عضو</th><th>سررسید</th><th>روزهای تأخیر</th><th></th></tr></thead>
+      <tbody id="overdueRows"></tbody>
+    </table></div>
+    <p class="muted">امانت‌هایی که تاریخ سررسیدشان گذشته و هنوز پس داده نشده‌اند.</p>
+  </section>
+
+  <!-- Reports -->
+  <section class="panel" id="tab-reports" hidden>
+    <h2>گزارش کتابخانه</h2>
+    <p>پُرامانت‌ترین کتاب‌ها (بر اساس تعداد دفعات امانت):</p>
+    <div id="topBars" style="margin-top:12px"></div>
+    <p class="muted" id="reportNote" style="margin-top:14px"></p>
+  </section>
+</div>
+
+<script>
+const KEY = 'library.v1';
+const LOAN_DAYS = 14;
+const fa = n => Number(n).toLocaleString('fa-IR');
+const faDate = d => new Date(d + 'T00:00:00').toLocaleDateString('fa-IR');
+const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// EDIT: داده‌های نمونه را اینجا تغییر دهید — همهٔ نام‌ها فرضی‌اند
+const SEED_BOOKS = [
+  {id:1, title:'بوف کور', author:'صادق هدایت', cat:'داستان', copies:3},
+  {id:2, title:'شاهنامه', author:'فردوسی', cat:'شعر و ادب', copies:2},
+  {id:3, title:'گلستان', author:'سعدی', cat:'شعر و ادب', copies:4},
+  {id:4, title:'شازده کوچولو', author:'آنتوان دو سنت اگزوپری', cat:'داستان', copies:5},
+  {id:5, title:'فیزیک پایه — جلد ۱', author:'هالیدی، رزنیک', cat:'علمی', copies:3},
+  {id:6, title:'شیمی عمومی', author:'مورتیمر', cat:'علمی', copies:2},
+  {id:7, title:'تاریخ ایران باستان', author:'حسن پیرنیا', cat:'تاریخ', copies:3},
+  {id:8, title:'دیوان حافظ', author:'حافظ', cat:'شعر و ادب', copies:4},
+];
+const SEED_MEMBERS = [
+  {id:101, name:'سارا محمدی', phone:'09123456789'},
+  {id:102, name:'امیر رضایی', phone:'09129876543'},
+  {id:103, name:'نگار احمدی', phone:'09121112233'},
+  {id:104, name:'علی کریمی', phone:'09124445566'},
+];
+const SEED_LOANS = [
+  {id:1, bookId:4, memberId:101, lendDate:'2026-11-01', dueDate:'2026-11-15', returnDate:null},
+  {id:2, bookId:1, memberId:102, lendDate:'2026-11-18', dueDate:'2026-12-02', returnDate:null},
+  {id:3, bookId:7, memberId:103, lendDate:'2026-11-05', dueDate:'2026-11-19', returnDate:'2026-11-17'},
+];
+
+let db, editingBookId = null;
+function load(){
+  try { db = JSON.parse(localStorage.getItem(KEY)); } catch(e){ db = null; }
+  if(!db || !db.books){ db = {books: SEED_BOOKS, members: SEED_MEMBERS, loans: SEED_LOANS,
+    nextBook: 9, nextMember: 105, nextLoan: 4}; save(); }
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+
+const bookById = id => db.books.find(b=>b.id===id);
+const memberById = id => db.members.find(m=>m.id===id);
+const activeLoans = bookId => db.loans.filter(l=>l.bookId===bookId && !l.returnDate);
+const available = b => b.copies - activeLoans(b.id).length;
+const isOverdue = l => !l.returnDate && l.dueDate < todayISO();
+const daysLate = l => Math.floor((new Date(todayISO()+'T00:00:00') - new Date(l.dueDate+'T00:00:00')) / 86400000);
+
+function renderAll(){ renderStats(); renderBooks(); renderMembers(); renderLendSelects(); renderLoans(); renderOverdue(); renderReports(); }
+function renderStats(){
+  const active = db.loans.filter(l=>!l.returnDate);
+  document.getElementById('stBooks').textContent = fa(db.books.length);
+  document.getElementById('stCopies').textContent = fa(db.books.reduce((s,b)=>s+b.copies,0));
+  document.getElementById('stMembers').textContent = fa(db.members.length);
+  document.getElementById('stActive').textContent = fa(active.length);
+  document.getElementById('stOverdue').textContent = fa(db.loans.filter(isOverdue).length);
+}
+function renderBooks(){
+  const q = document.getElementById('bookSearch').value.trim();
+  const rows = db.books.filter(b => !q || (b.title+' '+b.author+' '+b.cat).includes(q));
+  document.getElementById('bookRows').innerHTML = rows.map(b =>
+    `<tr><td>${esc(b.title)}</td><td>${esc(b.author)}</td><td>${esc(b.cat)}</td>` +
+    `<td>${fa(b.copies)}</td><td class="${available(b)===0?'low':''}">${fa(available(b))}</td>` +
+    `<td><button class="btn btn-ghost btn-sm" onclick="editBook(${b.id})">ویرایش</button> ` +
+    `<button class="btn btn-danger btn-sm" onclick="delBook(${b.id})">حذف</button></td></tr>`).join('') ||
+    '<tr><td colspan="6" class="muted">کتابی پیدا نشد.</td></tr>';
+}
+function editBook(id){
+  const b = bookById(id); if(!b) return;
+  editingBookId = id;
+  bTitle.value = b.title; bAuthor.value = b.author; bCat.value = b.cat; bCopies.value = b.copies;
+  document.getElementById('bookFormTitle').textContent = 'ویرایش کتاب';
+  document.getElementById('bookSubmitBtn').textContent = '💾 ذخیره تغییرات';
+  document.getElementById('bookCancelBtn').hidden = false;
+  bTitle.focus();
+}
+function cancelEdit(){
+  editingBookId = null;
+  document.getElementById('bookForm').reset();
+  document.getElementById('bookFormTitle').textContent = 'افزودن کتاب';
+  document.getElementById('bookSubmitBtn').textContent = '➕ افزودن کتاب';
+  document.getElementById('bookCancelBtn').hidden = true;
+}
+function delBook(id){
+  if(activeLoans(id).length){ alert('این کتاب امانت فعال دارد؛ اول آن را پس بگیرید.'); return; }
+  if(!confirm('این کتاب حذف شود؟')) return;
+  db.books = db.books.filter(b=>b.id!==id); save(); renderAll();
+}
+function renderMembers(){
+  document.getElementById('memberRows').innerHTML = db.members.map(m => {
+    const n = db.loans.filter(l=>l.memberId===m.id && !l.returnDate).length;
+    return `<tr><td>${fa(m.id)}</td><td>${esc(m.name)}</td><td>${esc(m.phone)}</td><td>${fa(n)}</td>` +
+    `<td><button class="btn btn-danger btn-sm" onclick="delMember(${m.id})">حذف</button></td></tr>`; }).join('') ||
+    '<tr><td colspan="5" class="muted">هنوز عضوی ثبت نشده است.</td></tr>';
+}
+function delMember(id){
+  if(db.loans.some(l=>l.memberId===id && !l.returnDate)){ alert('این عضو امانت فعال دارد؛ اول کتاب‌ها را پس بگیرید.'); return; }
+  if(!confirm('این عضو حذف شود؟')) return;
+  db.members = db.members.filter(m=>m.id!==id); save(); renderAll();
+}
+function renderLendSelects(){
+  document.getElementById('lMember').innerHTML = db.members.map(m =>
+    `<option value="${m.id}">${esc(m.name)} — کد ${fa(m.id)}</option>`).join('') ||
+    '<option value="">— عضوی نیست —</option>';
+  const avail = db.books.filter(b=>available(b)>0);
+  document.getElementById('lBook').innerHTML = avail.map(b =>
+    `<option value="${b.id}">${esc(b.title)} — ${esc(b.author)} (در دسترس ${fa(available(b))})</option>`).join('') ||
+    '<option value="">— کتاب در دسترسی نیست —</option>';
+  document.getElementById('lDue').value = addDays(todayISO(), LOAN_DAYS);
+}
+function loanStatus(l){
+  if(l.returnDate) return '<span class="badge badge-returned">پس داده شده</span>';
+  if(isOverdue(l)) return '<span class="badge badge-overdue">سررسید گذشته</span>';
+  return '<span class="badge badge-active">فعال</span>';
+}
+function renderLoans(){
+  const rows = [...db.loans].sort((a,b)=>b.id-a.id);
+  document.getElementById('loanRows').innerHTML = rows.map(l => {
+    const b = bookById(l.bookId), m = memberById(l.memberId);
+    const acts = l.returnDate ? '' :
+      `<button class="btn btn-green btn-sm" onclick="returnLoan(${l.id})">↩️ بازگشت</button> ` +
+      `<button class="btn btn-ghost btn-sm" onclick="extendLoan(${l.id})">تمدید ۷ روز</button>`;
+    return `<tr class="${isOverdue(l)?'overdue-row':''}"><td>${b?esc(b.title):'—'}</td><td>${m?esc(m.name):'—'}</td>` +
+    `<td>${faDate(l.lendDate)}</td><td>${faDate(l.dueDate)}</td><td>${loanStatus(l)}</td><td>${acts}</td></tr>`; }).join('') ||
+    '<tr><td colspan="6" class="muted">هنوز امانتی ثبت نشده است.</td></tr>';
+}
+function renderOverdue(){
+  const rows = db.loans.filter(isOverdue);
+  document.getElementById('overdueRows').innerHTML = rows.map(l => {
+    const b = bookById(l.bookId), m = memberById(l.memberId);
+    return `<tr><td>${b?esc(b.title):'—'}</td><td>${m?esc(m.name):'—'}</td>` +
+    `<td>${faDate(l.dueDate)}</td><td>${fa(daysLate(l))} روز</td>` +
+    `<td><button class="btn btn-green btn-sm" onclick="returnLoan(${l.id})">↩️ بازگشت</button></td></tr>`; }).join('') ||
+    '<tr><td colspan="5" class="muted">کتاب سررسید گذشته‌ای نیست. 🎉</td></tr>';
+}
+function returnLoan(id){
+  const l = db.loans.find(x=>x.id===id); if(!l || l.returnDate) return;
+  l.returnDate = todayISO(); save(); renderAll();
+}
+function extendLoan(id){
+  const l = db.loans.find(x=>x.id===id); if(!l || l.returnDate) return;
+  l.dueDate = addDays(l.dueDate < todayISO() ? todayISO() : l.dueDate, 7);
+  save(); renderAll();
+}
+function renderReports(){
+  const counts = {};
+  db.loans.forEach(l => { const b = bookById(l.bookId); if(b) counts[b.title]=(counts[b.title]||0)+1; });
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const max = top.length ? top[0][1] : 1;
+  document.getElementById('topBars').innerHTML = top.map(([name,n]) =>
+    `<div class="bar-row"><span class="bar-label">${esc(name)}</span>` +
+    `<div class="bar-track"><div class="bar" style="width:${Math.round(n/max*100)}%"></div></div><span>${fa(n)} بار</span></div>`).join('') ||
+    '<p class="muted">داده‌ای برای نمایش نیست.</p>';
+  const returned = db.loans.filter(l=>l.returnDate).length;
+  document.getElementById('reportNote').textContent =
+    `جمع امانت‌ها: ${fa(db.loans.length)} — پس داده شده: ${fa(returned)} — فعال: ${fa(db.loans.length-returned)} — سررسید گذشته: ${fa(db.loans.filter(isOverdue).length)}.`;
+}
+
+document.getElementById('bookForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if(editingBookId){
+    const b = bookById(editingBookId);
+    b.title = bTitle.value.trim(); b.author = bAuthor.value.trim();
+    b.cat = bCat.value.trim(); b.copies = +bCopies.value;
+    cancelEdit();
+  } else {
+    db.books.push({id: db.nextBook++, title: bTitle.value.trim(), author: bAuthor.value.trim(),
+      cat: bCat.value.trim(), copies: +bCopies.value});
+    e.target.reset();
+  }
+  save(); renderAll();
+});
+document.getElementById('bookCancelBtn').addEventListener('click', cancelEdit);
+document.getElementById('bookSearch').addEventListener('input', renderBooks);
+document.getElementById('memberForm').addEventListener('submit', e => {
+  e.preventDefault();
+  db.members.push({id: db.nextMember++, name: mName.value.trim(), phone: mPhone.value.trim()});
+  save(); renderAll(); e.target.reset();
+});
+document.getElementById('lendForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if(db.loans.length >= 4){ alert('نسخهٔ نمایشی: فقط یک امانت آزمایشی می‌توانید ثبت کنید. برای استفادهٔ نامحدود، نسخهٔ کامل را بخرید.'); return; }
+  const bookId = +lBook.value, memberId = +lMember.value;
+  const b = bookById(bookId);
+  if(!b || !memberById(memberId)){ alert('عضو یا کتاب را انتخاب کنید.'); return; }
+  if(available(b) <= 0){ alert('این کتاب در دسترس نیست.'); return; }
+  db.loans.push({id: db.nextLoan++, bookId, memberId, lendDate: todayISO(), dueDate: lDue.value, returnDate:null});
+  save(); renderAll();
+  alert('امانت ثبت شد. سررسید: ' + faDate(lDue.value));
+});
+document.getElementById('csvBtn').addEventListener('click', () => {
+  alert('دانلود CSV در نسخهٔ کامل فعال است. برای خرید، توضیحات ریپو را ببینید.'); return;
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if(!confirm('داده‌ها به حالت نمونه برگردد؟')) return;
+  db = {books: SEED_BOOKS, members: SEED_MEMBERS, loans: SEED_LOANS, nextBook: 9, nextMember: 105, nextLoan: 4};
+  save(); renderAll();
+});
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['books','members','lend','loans','overdue','reports'].forEach(t =>
+    document.getElementById('tab-'+t).hidden = (t!==btn.dataset.tab));
+}));
+
+load(); renderAll();
+</script>
+</body>
+</html>
